@@ -37,3 +37,6 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Spatial data of Parks
+/data/spatial/TA_PARK_ECORES_PA_SVW/
