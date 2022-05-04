@@ -6,7 +6,7 @@ server <- function(input, output) {
 
   output$sum <- renderText({
     x <- reactiveValuesToList(input)
-    y <<- as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|table|alert|bs_")])) %>%
+    y <- as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|score|value|alert|bs_|norm")])) %>%
       rownames_to_column("parameter") %>%
       mutate(weight = as.numeric(V1)) %>%
       select(-V1)
@@ -17,11 +17,14 @@ server <- function(input, output) {
   })
 
   all_inputs <- eventReactive(input$calculate, {
+
     x <- reactiveValuesToList(input)
-    as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|table|alert|bs_")])) %>%
+
+    as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|score|value|alert|bs_|norm")])) %>%
       rownames_to_column("parameter") %>%
       mutate(weight = as.numeric(V1)) %>%
       select(-V1)
+
   }, ignoreNULL = FALSE)
 
   set_flag <- reactiveValues()
@@ -38,28 +41,48 @@ server <- function(input, output) {
 
   })
 
-  d1 <- eventReactive(input$calculate, {
+  d0 <- eventReactive(input$calculate, {
 
-  criteria_prep %>%
+  if(input$norm == "Normalized Area Proportions") {
+
+  criteria_prep_norm %>%
     #select(herd, population_size) %>%
     pivot_longer(2:last_col(), names_to = "parameter", values_to = "value") %>%
     filter(!parameter == "population_trend") %>%
-    left_join(all_inputs(), by = "parameter") %>%
-    mutate(score = value * weight) %>%
-    group_by(herd) %>%
-    summarise(sum = sum(score)) %>%
-    mutate(Rank = dense_rank(desc(sum)))
+    left_join(all_inputs(), by = "parameter")
+
+  } else {
+
+    criteria_prep %>%
+      #select(herd, population_size) %>%
+      pivot_longer(2:last_col(), names_to = "parameter", values_to = "value") %>%
+      filter(!parameter == "population_trend") %>%
+      left_join(all_inputs(), by = "parameter")
+
+  }
+
+  }, ignoreNULL = FALSE)
+
+  d1 <- eventReactive(input$calculate, {
+
+    d0() %>%
+      mutate(score = value * weight) %>%
+      group_by(herd) %>%
+      summarise(sum = sum(score)) %>%
+      mutate(Rank = dense_rank(desc(sum)))
 
   }, ignoreNULL = FALSE)
 
   d2 <- eventReactive(input$calculate, {
+
     herds %>%
       left_join(d1(), by = "herd")
+
   }, ignoreNULL = FALSE)
 
   output$herds <- renderLeaflet({
 
-    pal <<- colorNumeric(
+    pal <- colorNumeric(
       palette = "viridis",
       domain = d2()$Rank,
       reverse = TRUE
@@ -140,7 +163,7 @@ server <- function(input, output) {
     d2() %>%
       st_set_geometry(NULL) %>%
       mutate(Score = round(sum, digits = 2)) %>%
-      select(Rank, Herd = herd, Score) %>%
+      select(Rank, `Caribou Herd` = herd, Score) %>%
       arrange(Rank) %>%
       DT::datatable(extensions = "Buttons",
                     rownames = FALSE,
@@ -156,22 +179,23 @@ server <- function(input, output) {
 
   output$value <- renderDT(
 
-    criteria_prep %>%
-      #select(herd, population_size) %>%
-      pivot_longer(2:last_col(), names_to = "parameter", values_to = "value") %>%
-      filter(!parameter == "population_trend") %>%
-      left_join(all_inputs(), by = "parameter") %>%
+    d0() %>%
       filter(weight > 0) %>%
+      mutate(Value = round(value, digits = 3),
+             `Caribou Herd` = as.factor(herd),
+             Parameter = as.factor(parameter)) %>%
+      select(`Caribou Herd`, Parameter, Weight = weight, Value) %>%
       DT::datatable(extensions = "Buttons",
                     rownames = FALSE,
+                    filter = list(position = 'top', clear = TRUE, plain = TRUE),
                     options = list(
                       buttons = list(
                         'copy', 'print', list(
                           extend = "collection",
                           buttons = c('csv', 'excel', 'pdf'),
                           text = "Download")),
-                      dom = "Bft",
-                      pageLength = 17))
+                      dom = "Blfrtip",
+                      pageLength = 20))
   )
 
   observeEvent(input$reset, {
