@@ -4,6 +4,8 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyjs)
+library(shinyalert)
+library(shinyBS)
 library(leaflet)
 library(leaflet.extras)
 library(DT)
@@ -36,12 +38,14 @@ effect.fun <- function(x) {
 # Load data
 
 # Criteria values for each herd:
-criteria <- read_excel("data/priority_ranking_matrix_inputs.xlsx", sheet = "Criteria") %>%
+criteria <- read_excel("data/priority_ranking_matrix_inputs.xlsx", sheet = "Criteria_RawVals") %>%
   clean_names()
 
 # Weights
 weights <- read_excel("data/priority_ranking_matrix_inputs.xlsx", sheet = "Weights") %>%
   clean_names()
+
+definitions <- read_excel("data/priority_ranking_matrix_inputs.xlsx", sheet = "Definitions")
 
 # Herd polygons
 herds <- st_read("data/spatial/SouthernMountain_210430.shp") %>%
@@ -59,17 +63,20 @@ herds <- st_read("data/spatial/SouthernMountain_210430.shp") %>%
 
 # Prepare data:
 
-# Option A
+# Option A - Normalize Some
 criteria_prep <- criteria
 
 criteria_prep[,c(2,4:5)]<-apply(criteria[,c(2,4:5)],2, normalize.fun)
-criteria_prep[,c(9:36)]<-apply(criteria_prep[,c(9:36)],2,effect.fun)
+criteria_prep[,c(5,9:36)]<-apply(criteria_prep[,c(5,9:36)],2,effect.fun)
 
-# Option B
+# Option B - Normalize All
 criteria_prep_norm <- criteria
 
 criteria_prep_norm[,c(2,4:36)]<-apply(criteria[,c(2,4:36)],2,normalize.fun)
-criteria_prep_norm[,c(9:36)]<-apply(criteria_prep_norm[,c(9:36)],2,effect.fun)
+criteria_prep_norm[,c(5,9:36)]<-apply(criteria_prep_norm[,c(5,9:36)],2,effect.fun)
+
+# Definitions
+
 
 #-----------------------------------------------------------------------------------------------------------------------
 

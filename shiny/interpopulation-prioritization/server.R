@@ -4,13 +4,39 @@
 
 server <- function(input, output) {
 
+  output$sum <- renderText({
+    x <- reactiveValuesToList(input)
+    y <<- as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|table|alert|bs_")])) %>%
+      rownames_to_column("parameter") %>%
+      mutate(weight = as.numeric(V1)) %>%
+      select(-V1)
+    # Calculate sum of weights
+    sum <- sum(y$weight)
+    paste0("Sum of Weights: ", tags$b(sum))
+
+  })
+
   all_inputs <- eventReactive(input$calculate, {
     x <- reactiveValuesToList(input)
-    as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|table")])) %>%
+    as.data.frame(as.matrix(x[!str_detect(names(x), "herds|calculate|shinyjs|reset|table|alert|bs_")])) %>%
       rownames_to_column("parameter") %>%
       mutate(weight = as.numeric(V1)) %>%
       select(-V1)
   }, ignoreNULL = FALSE)
+
+  set_flag <- reactiveValues()
+
+  observeEvent(input$calculate, {
+
+    # Calculate sum of weights
+    sum <- sum(all_inputs()$weight)
+    # Set flag
+    set_flag$flag <- if(!sum == 100) TRUE else FALSE
+    set_flag$direction <- if(sum > 100) "remove" else "add"
+    set_flag$sum <- sum
+    set_flag$amount <- abs(sum - 100)
+
+  })
 
   d1 <- eventReactive(input$calculate, {
 
@@ -109,7 +135,7 @@ server <- function(input, output) {
 
   )
 
-  output$table <- renderDT(
+  output$score <- renderDT(
 
     d2() %>%
       st_set_geometry(NULL) %>%
@@ -128,9 +154,45 @@ server <- function(input, output) {
                       pageLength = 17))
   )
 
+  output$value <- renderDT(
+
+    criteria_prep %>%
+      #select(herd, population_size) %>%
+      pivot_longer(2:last_col(), names_to = "parameter", values_to = "value") %>%
+      filter(!parameter == "population_trend") %>%
+      left_join(all_inputs(), by = "parameter") %>%
+      filter(weight > 0) %>%
+      DT::datatable(extensions = "Buttons",
+                    rownames = FALSE,
+                    options = list(
+                      buttons = list(
+                        'copy', 'print', list(
+                          extend = "collection",
+                          buttons = c('csv', 'excel', 'pdf'),
+                          text = "Download")),
+                      dom = "Bft",
+                      pageLength = 17))
+  )
+
   observeEvent(input$reset, {
 
     shinyjs::reset("side-panel")
+
+  })
+
+  observeEvent(input$calculate, {
+
+    if(set_flag$flag) {
+
+      shinyalert(title = "Just a heads up ...",
+                 text = paste0("The sum of your weights is ", set_flag$sum, ".",
+                               " We recommend that you ", set_flag$direction, " ", set_flag$amount,
+                               " units so that the sum equals 100."),
+                 size = "s",
+                 html = TRUE,
+                 type = "warning")
+
+    }
 
   })
 
