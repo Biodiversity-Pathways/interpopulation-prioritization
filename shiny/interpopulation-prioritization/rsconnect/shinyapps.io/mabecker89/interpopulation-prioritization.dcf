@@ -1,11 +1,13 @@
 name: interpopulation-prioritization
-title:
+title: interpopulation-prioritization
 username:
 account: mabecker89
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6090799
-bundleId: 5798685
+bundleId: 5870947
 url: https://mabecker89.shinyapps.io/interpopulation-prioritization/
-when: 1649947932.4008
-lastSyncTime: 1649947932.4008
+when: 1651696407.35847
+lastSyncTime: 1651696407.35847
+asMultiple: FALSE
+asStatic: FALSE
